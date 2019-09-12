@@ -6,15 +6,15 @@
 ## Ressalvas
 - Projeto frontend do curso x Este prejeto final
 	- No curso >
-		- `Construção das interfaces`: VueJS;
-		- `Banco relacional`: Postgresql;
-		- `Banco não-relacional`: MongoDB.
+		- Construção das interfaces: `VueJS`;
+		- Banco relacional: `Postgresql`;
+		- Banco não-relacional: `MongoDB`.
 	- Neste projeto >
-		- `Construção das interfaces`: ReactJS;
-		- `Banco relacional`: MYSQL;
-		- `Banco não-relacional`: MongoDB [**Mongo Atlas**](https://cloud.mongodb.com "Site do serviço utilizado");
-		- `Extras`: 
-			- `realtime`, com socket.
+		- Construção das interfaces: `ReactJS`;
+		- Banco relacional: `MYSQL`;
+		- Banco não-relacional: `MongoDB` [**Mongo Atlas**](https://cloud.mongodb.com "Site do serviço utilizado");
+		- *Extras*: 
+			- realtime, com `socket`.
 
 
 ## Características
