@@ -53,16 +53,16 @@ const Article = ({ token }) => {
       .get(`/articles?page=${p || 1}`, { headers: { Authorization: `bearer ${ token }` } })
       .then(({ data }) => {
       		const newInTable = { ...inTable }
-          newInTable.articles = data.data.reverse()
+          newInTable.articles = data.data
           setPageSettings({ count: data.count || 1, limit: data.limit })
           newInTable.ready = true
           newInTable.failed = false
           setInTable({ ...newInTable, requesting: false })
 
         	if (!authorsAndCategories.authors.length) {
-        		api.get('/categories', { headers: { Authorization: `bearer ${ token }` } })
+        		api.get('/categories?all', { headers: { Authorization: `bearer ${ token }` } })
 				     	.then(({ data: c }) => {
-				     		api.get('/users', { headers: { Authorization: `bearer ${ token }` } })
+				     		api.get('/users?all', { headers: { Authorization: `bearer ${ token }` } })
 						     	.then(({ data: u }) => {
 						     		setInTable({ ...newInTable, requesting: false })
 						     		setArticle({ ...article, userId: u[0] ? u[0].id : null , categoryId: c[0] ? c[0].id : null })
@@ -172,13 +172,10 @@ const Article = ({ token }) => {
         case 'Excluir':
           api.delete(`/articles/${article.id}`, { headers: { Authorization: `bearer ${ token }` } })
             .then(() => {
-              const newArticles = inTable.articles.filter(({ id }) => article.id !== id)
-
-              if (!newArticles.length) {
+              if (inTable.articles.length - 1 === 0) {
                 doRequest(pageActual - 1)
-                setPageSettings({ ...pageSettings, count: pageActual - 1 === 0 ? 1 : 0 })
                 setPageActual(pageActual - 1)
-              } else setInTable({ ...pageAdmin.articleComponent.INITIO_INTABLE, articles: newArticles, ready: true, failed: false })
+              } else doRequest(pageActual)
 
               setMode({ ...pageAdmin.global.INITIO_MODE })
               setArticle({ ...pageAdmin.articleComponent.INITIO_ARTICLE, userId: authorsAndCategories.authors[0].id, categoryId: authorsAndCategories.categories[0].id })
@@ -210,13 +207,7 @@ const Article = ({ token }) => {
           api
             .post('/articles', data, { headers: { Authorization: `bearer ${ token }` } })
             .then(() => {
-            	data.content = { type: 'Buffer', data: Buffer(data.content) }
-            	if (inTable.articles.length < pageSettings.limit) {             
-                if (inTable.articles.length > 0) setInTable({ ...inTable, articles: [ ...inTable.articles, { id: inTable.articles[inTable.articles.length - 1].id + 1, ...data}] })
-                else setInTable({ ...inTable, articles: [ ...inTable.articles, { id: false, ...data } ] })
-              } else {
-                setPageSettings({ ...pageSettings, count: pageSettings.count + 1 })
-              }
+              doRequest(pageActual)
               setMode({ ...pageAdmin.global.INITIO_MODE })
               setArticle({ ...pageAdmin.articleComponent.INITIO_ARTICLE, userId: authorsAndCategories.authors[0].id, categoryId: authorsAndCategories.categories[0].id })
               addToast('Artigo salvado com sucesso!', { ...toasts, appearance: 'success'})
@@ -345,8 +336,7 @@ const Article = ({ token }) => {
                   <Button onClick={() => {
                     const original = { 
                       originalName: articleInMap.name, originalDescription: articleInMap.description, 
-                      originalImageUrl: articleInMap.imageUrl, originalContent: articleInMap.content,
-                      originalContent: conv(articleInMap.content.data, { out: 'utf8' })
+                      originalImageUrl: articleInMap.imageUrl, originalContent: conv(articleInMap.content.data, { out: 'utf8' })
                     } 
                     setArticle({ ...articleInMap, imageUrl: articleInMap.imageUrl ? articleInMap.imageUrl : '', content: conv(articleInMap.content.data, { out: 'utf8' }), ...original })
                     setDivSearch({ ...pageAdmin.global.INITIO_DIVSEARCH })

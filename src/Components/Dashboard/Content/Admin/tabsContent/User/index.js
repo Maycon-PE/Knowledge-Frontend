@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { useToasts } from 'react-toast-notifications'
+import PaginationComponent from 'react-reactstrap-pagination'
 import {
 	Table, Button, Form, 
   FormGroup, Label, Input, 
@@ -22,7 +23,8 @@ import {
 	Thead as TheadStyle,	
 	Search as SearchStyle,
   Filter as FilterStyle,
-  TheadTitle as TheadTitleStyle
+  TheadTitle as TheadTitleStyle,
+  PaginationArea as PaginationAreaStyle
 } from '../../styles'
 
 import DropUp from '../DropUp'
@@ -30,6 +32,8 @@ import AdminDropUp from './dropsUp/Admin'
 
 const User = ({ token }) => {
   const { addToast } = useToasts()
+  const [pageActual, setPageActual] = useState(1)
+  const [pageSettings, setPageSettings] = useState({ ...pageAdmin.global.INITIO_PAGINATION })
   const [divSearch, setDivSearch] = useState({ ...pageAdmin.global.INITIO_DIVSEARCH })
   const [filtersTerms, setFiltersTerms] = useState({ ...pageAdmin.userComponent.INITIO_FILTERSTERMS })
   const [filter, setFilter] = useState(['Todos', ''])
@@ -37,12 +41,12 @@ const User = ({ token }) => {
 	const [user, setUser] = useState({ ...pageAdmin.userComponent.INITIO_USER })
 	const [inTable, setInTable] = useState({ ...pageAdmin.userComponent.INITIO_INTABLE, ...pageAdmin.global.INITIO_INTABLE })
 
-  const doRequest = () => {
-    api
-      .get('/users', { headers: { Authorization: `bearer ${ token }` } })
+  const doRequest = (p) => {
+    api.get(`/users?page=${p || 1}`, { headers: { Authorization: `bearer ${ token }` } })
       .then(({ data }) => {
+            setPageSettings({ count: data.count || 1, limit: data.limit })
             const users = { ...pageAdmin.userComponent.INITIO_INTABLE }
-            users.users = data.reverse()
+            users.users = data.data
             users.ready = true
             users.failed = false
             setInTable(users)
@@ -56,7 +60,7 @@ const User = ({ token }) => {
   }
 
   io.on('connect', () => {
-    inTable.failed && doRequest()
+    inTable.failed && doRequest(pageActual)
   })
 
   io.on('disconnect', () => {
@@ -135,12 +139,13 @@ const User = ({ token }) => {
             .then(() => {
               addToast('Exluido com sucesso!', { ...toasts, appearance: 'info' })
               setUser({ ...pageAdmin.userComponent.INITIO_USER })
-              setMode({ ...pageAdmin.global.INITIO_MODE })
-              if (user.id) {
-                const newUsers = { ...inTable }
-                newUsers.users = newUsers.users.filter(({ id }) => user.id !== id)
-                setInTable(newUsers)
-              }
+              setMode({ ...pageAdmin.global.INITIO_MODE })    
+
+              if (inTable.users.length - 1 === 0) {
+                doRequest(pageActual - 1)
+                setPageActual(pageActual - 1)
+              } else doRequest(pageActual)
+            
             }).catch(() => {
               setMode({ ...mode, exec: false })
               addToast('Não foi possível excluir!', { ...toasts, appearance: 'error' })
@@ -170,9 +175,12 @@ const User = ({ token }) => {
             .then(() => {
               setMode({ ...pageAdmin.global.INITIO_MODE })
               setUser({ ...pageAdmin.userComponent.INITIO_USER })
-              const newUsers = { ...inTable }
-              newUsers.users = [ data, ...inTable.users ]  
-              setInTable({ ...newUsers })
+
+              if (inTable.users.length < pageSettings.limit) {             
+                doRequest(pageActual)
+              } else {
+                setPageSettings({ ...pageSettings, count: pageSettings.count + 1 })
+              }
               addToast('Cadastro realizado com sucesso!', { ...toasts, appearance: 'success' })
             })
             .catch(() => {
@@ -270,13 +278,13 @@ const User = ({ token }) => {
                 <td> { name } </td>
                 <td> { email } </td>
                 <td> { admin ? 'Sim': 'Não' } </td>
-                <td style={{ display: 'flex', flexFlow: 'row wrap', alignItems: 'space-between', justifyContent: 'space-between' }}>
-                  <Button style={{ flex: '1' }} onClick={() => {
+                <td>
+                  <Button onClick={() => {
                     setDivSearch({ ...pageAdmin.global.INITIO_DIVSEARCH })
                     setUser({ ...pageAdmin.userComponent.INITIO_USER, id, name, email, admin, originalName: name, originalEmail: email, originalAdmin: admin })
                     setMode({ label: 'Editar', color: 'warning' })
                   }} color={ mode.label === 'Editar' ? user.id === id ? 'secondary': 'warning' : 'warning' } disabled={ mode.label === 'Editar' ? user.id === id : false } size='sm'>Editar</Button>
-                  <Button style={{ flex: '1' }} onClick={() => {
+                  <Button className='ml-2' onClick={() => {
                     setDivSearch({ ...pageAdmin.global.INITIO_DIVSEARCH })
                     setUser({ ...pageAdmin.userComponent.INITIO_USER, id, name, email, admin })
                     setMode({ label: 'Excluir', color: 'danger' })
@@ -287,6 +295,22 @@ const User = ({ token }) => {
           <tr><td colSpan='5' style={{ textAlign: 'center' }}>Carregando...</td></tr> }
         </tbody>
       </Table>
+      <PaginationAreaStyle filtering={ filter[0] !== 'Todos' }  title={`Um total de ${pageSettings.count} artigos`}>
+        <PaginationComponent
+          firstPageText='<<'
+          previousPageText='|<'
+          nextPageText='>|'
+          lastPageText='>>'
+          maxPaginationNumbers={10}
+          activePage={pageActual}
+          totalItems={pageSettings.count}
+          pageSize={pageSettings.limit}
+          onSelect={p => {
+            doRequest(p)
+            setPageActual(p)
+          }}
+        />
+      </PaginationAreaStyle>
     </div>
 	) 
 }

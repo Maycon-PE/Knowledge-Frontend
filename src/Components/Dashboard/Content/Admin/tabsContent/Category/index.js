@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { useToasts } from 'react-toast-notifications'
+import PaginationComponent from 'react-reactstrap-pagination'
 import {
 	Table, Button, Form, 
   FormGroup, Label, Input, 
@@ -21,13 +22,16 @@ import {
 	Thead as TheadStyle,	
 	Search as SearchStyle,
   Filter as FilterStyle,
-  TheadTitle as TheadTitleStyle
+  TheadTitle as TheadTitleStyle,
+  PaginationArea as PaginationAreaStyle
 } from '../../styles'
 
 import DropUp from '../DropUp'
 
 const Category = ({ token }) => {
 	const { addToast } = useToasts()
+  const [pageActual, setPageActual] = useState(1)
+  const [pageSettings, setPageSettings] = useState({ ...pageAdmin.global.INITIO_PAGINATION })
   const [divSearch, setDivSearch] = useState({ ...pageAdmin.global.INITIO_DIVSEARCH })
   const [filtersTerms, setFiltersTerms] = useState({ ...pageAdmin.categoryComponent.INITIO_FILTERSTERMS })
   const [filter, setFilter] = useState(['Todos', ''])
@@ -35,27 +39,37 @@ const Category = ({ token }) => {
 	const [category, setCategory] = useState({ ...pageAdmin.categoryComponent.INITIO_CATEGORY })
 	const [inTable, setInTable] = useState({ ...pageAdmin.categoryComponent.INITIO_INTABLE, ...pageAdmin.global.INITIO_INTABLE })
 
-  const doRequest = () => {
+  const doRequest = (p) => {
+    const failed = () => {
+      const categories = { ...pageAdmin.categoryComponent.INITIO_INTABLE }
+      categories.ready = true
+      categories.failed = true
+      setInTable({ ...categories, requesting: false })
+    }
+
     setInTable({ ...inTable, requesting: true })
-    api
-      .get('/categories', { headers: { Authorization: `bearer ${ token }` } })
+    api.get(`/categories?page=${p || 1}`, { headers: { Authorization: `bearer ${ token }` } })
       .then(({ data }) => {
           const categories = { ...pageAdmin.categoryComponent.INITIO_INTABLE }
-          categories.categories = data.reverse()
+          setPageSettings({ count: data.count || 1, limit: data.limit })
+          categories.categories = data.data
           categories.ready = true
           categories.failed = false
-          setInTable({ ...categories, requesting: false })
+          api.get('/categories?all', { headers: { Authorization: `bearer ${ token }` } })
+            .then(res => {
+              categories.paths = res.data
+              setInTable({ ...categories, requesting: false })
+            }).catch(() => {
+              failed()
+            })
         })
-      .catch(e => {
-        const categories = { ...pageAdmin.categoryComponent.INITIO_INTABLE }
-        categories.ready = true
-        categories.failed = true
-        setInTable({ ...categories, requesting: false })
+      .catch(() => {
+        failed()
       })
   }
 
   io.on('connect', () => {
-    inTable.failed && doRequest()
+    inTable.failed && doRequest(pageActual)
   })
 
   io.on('disconnect', () => {
@@ -67,16 +81,11 @@ const Category = ({ token }) => {
 	}, [token])
 
   const setParentId = (parentId) => {
-    console.log(+parentId === 0)
     if (+parentId === 0) {
       setCategory({ ...category, parentId: null, path: '' })
     } else {
-      for (let p = 0; p < inTable.categories.length; p++) {
-        if (inTable.categories[p].id === +parentId) {
-          setCategory({ ...category, changed: false, parentId: inTable.categories[p].id, path: inTable.categories[p].path })
-          break
-        }
-      }  
+      const parentObject = inTable.paths.find(({ id }) => id === +parentId)
+      setCategory({ ...category, changed: false, parentId: parentObject.id, path: parentObject.path })
     }
   }
 
@@ -138,8 +147,12 @@ const Category = ({ token }) => {
         case 'Excluir':
           api.delete(`/categories/${category.id}`, { headers: { Authorization: `bearer ${ token }` } })
             .then(() => {
-              const newCategories = inTable.categories.filter(({ id }) => category.id !== id)
-              setInTable({ ...pageAdmin.categoryComponent.INITIO_INTABLE, categories: newCategories, ready: true, failed: false })
+              if (inTable.categories.length - 1 === 0) {
+                doRequest(pageActual - 1)
+                setPageActual(pageActual - 1)
+              } else doRequest(pageActual)
+
+
               setMode({ ...pageAdmin.global.INITIO_MODE })
               setCategory({ ...pageAdmin.categoryComponent.INITIO_CATEGORY })
               addToast('Excluido com sucesso!', { ...toasts, appearance: 'info' })
@@ -179,9 +192,10 @@ const Category = ({ token }) => {
             .post('/categories', data, { headers: { Authorization: `bearer ${ token }` } })
             .then(() => {
               setMode({ ...pageAdmin.global.INITIO_MODE })
-              setCategory({ ...pageAdmin.categoryComponent.INITIO_CATEGORY })
+              setCategory({ ...pageAdmin.categoryComponent.INITIO_CATEGORY })           
+              doRequest(pageActual)
               addToast('Categoria salvada com sucesso!', { ...toasts, appearance: 'success'})
-              doRequest()
+              
             })
             .catch(() => {
               setMode({ ...mode, exec: false })
@@ -216,7 +230,7 @@ const Category = ({ token }) => {
               <Input type='select' name='path' onChange={({ target }) => setParentId(target.value)}>
                 <optgroup label='Destino'>
                   <option value='0'>Raiz (Categoria global)</option>
-                  { inTable.categories.map(({ id, name, path }) => <option key={path} value={ id }>{ name }</option>) }
+                  { inTable.paths.map(({ id, name, path }, index) => <option key={`${index}-${path}`} value={ id }>{ name }</option>) }
                 </optgroup>
               </Input>
             </FormGroup>
@@ -261,7 +275,7 @@ const Category = ({ token }) => {
         <tbody>
         	{ inTable.ready ? inTable[inTable.mode].length ? inTable[inTable.mode].map(({ id, name, path, parentId }, index) => 
           		<TrStyle scope='row' key={`category_${name}-${id}`}>
-                <td> { index + 1 }</td>
+                <td> { id }</td>
                 <td> { name } </td>
                 <td> { path.indexOf('>') === -1 ? 'Raiz' : path } </td>
                 <td>
@@ -270,7 +284,7 @@ const Category = ({ token }) => {
                     setCategory({ id, name, originalName: name, path, parentId })
                     setMode({ label: 'Editar', color: 'warning' })
                   }} color={ mode.label === 'Editar' ? category.id === id ? 'secondary': 'warning' : 'warning' } disabled={ mode.label === 'Editar' ? category.id === id : false } size='sm'>Editar</Button>
-                  <Button onClick={() => {
+                  <Button className='ml-2' onClick={() => {
                     setDivSearch({ ...pageAdmin.global.INITIO_DIVSEARCH })
                     setCategory({ ...pageAdmin.categoryComponent.INITIO_CATEGORY, id, name, path })
                     setMode({ label: 'Excluir', color: 'danger' })
@@ -281,6 +295,22 @@ const Category = ({ token }) => {
           <tr><td colSpan='4' style={{ textAlign: 'center' }}>Carregando...</td></tr> }
         </tbody>
       </Table>
+      <PaginationAreaStyle filtering={ filter[0] !== 'Todos' }  title={`Um total de ${pageSettings.count} artigos`}>
+        <PaginationComponent
+          firstPageText='<<'
+          previousPageText='|<'
+          nextPageText='>|'
+          lastPageText='>>'
+          maxPaginationNumbers={10}
+          activePage={pageActual}
+          totalItems={pageSettings.count}
+          pageSize={pageSettings.limit}
+          onSelect={p => {
+            doRequest(p)
+            setPageActual(p)
+          }}
+        />
+      </PaginationAreaStyle>
     </div>
 	) 
 }

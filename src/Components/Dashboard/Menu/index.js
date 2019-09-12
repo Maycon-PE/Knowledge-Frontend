@@ -34,7 +34,7 @@ const Menu = ({ menu, token, index, dispatch }) => {
 		requestSituation.failed && doRequest()
 	})
 
-	io.on('new_category', () => {
+	io.on('refresh-tree', () => {
 		doRequest()
 	})
 

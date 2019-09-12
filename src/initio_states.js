@@ -69,7 +69,8 @@ export const pageAdmin = {
 
 		INITIO_INTABLE: { 
 		  mode: 'categories', 
-		  categories: []
+		  categories: [],
+		  paths: []
 		},
 
 		INITIO_CATEGORY: {
