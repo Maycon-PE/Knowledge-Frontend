@@ -4,7 +4,7 @@
 - [Repositório](https://github.com/Maycon-PE/knowledge-Backend "knowledge-Backend")
 
 ## Ressalvas
-- Projeto frontend do curso x Este prejeto final
+- Projeto do curso x Este prejeto final
 	- No curso >
 		- Construção das interfaces: `VueJS`;
 		- Banco relacional: `Postgresql`;
